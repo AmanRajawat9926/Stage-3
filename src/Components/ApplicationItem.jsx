@@ -10,25 +10,39 @@ function ApplicationItem({
   onEdit,
   onDelete,
 }) {
-  const currentRound = getDerivedRound(application);
+  const currentRound =
+    getDerivedRound(application);
 
-  const daysSince = calculateDaysSinceApplied(
-    application.appliedDate
-  );
+  const daysSince =
+    calculateDaysSinceApplied(
+      application.appliedDate
+    );
 
-  const isStale = isApplicationStale(application);
+  const isStale =
+    isApplicationStale(application);
 
-  const hrefUrl = formatUrl(application.jobLink);
+  const hrefUrl =
+    formatUrl(application.jobLink);
 
-  // Requirement 4:
-  // History should be displayed newest first.
-  const sortedHistory = Array.isArray(application.history)
-    ? [...application.history].sort(
-        (a, b) =>
-          new Date(b.changedAt).getTime() -
-          new Date(a.changedAt).getTime()
-      )
-    : [];
+  const sortedHistory =
+    Array.isArray(application.history)
+      ? [...application.history].sort(
+          (a, b) =>
+            new Date(
+              b.changedAt
+            ).getTime() -
+            new Date(
+              a.changedAt
+            ).getTime()
+        )
+      : [];
+
+  const interviewRounds =
+    Array.isArray(
+      application.interviewRounds
+    )
+      ? application.interviewRounds
+      : [];
 
   return (
     <article
@@ -43,7 +57,6 @@ function ApplicationItem({
             {application.company}
           </h3>
 
-          {/* Current round is derived from history */}
           <span
             className={`round-badge badge-${currentRound.toLowerCase()}`}
           >
@@ -66,13 +79,18 @@ function ApplicationItem({
 
         <div className="meta-row">
           <span className="meta-applied">
-            <strong>Applied:</strong>{' '}
+            <strong>
+              Applied:
+            </strong>{' '}
             {application.appliedDate}
           </span>
 
           <span className="days-ago">
             ({daysSince}{' '}
-            {daysSince === 1 ? 'day' : 'days'} ago)
+            {daysSince === 1
+              ? 'day'
+              : 'days'}{' '}
+            ago)
           </span>
 
           <span className="meta-separator">
@@ -90,45 +108,99 @@ function ApplicationItem({
           </a>
         </div>
 
-        {/* Requirement 4: Transition History */}
-        <div className="history-section mt-3 pt-3 border-t text-sm">
-          <h4 className="font-semibold text-gray-700 text-xs uppercase tracking-wider mb-2">
-            Transition History ({sortedHistory.length})
+        {/* Interview Rounds */}
+        <section
+          className="application-detail-section"
+          aria-label="Interview rounds"
+        >
+          <h4>
+            Interview Rounds (
+            {interviewRounds.length})
           </h4>
 
-          <ul className="history-list space-y-1">
-            {sortedHistory.map((item) => (
-              <li
-                key={item.id}
-                className="history-item flex justify-between text-xs text-gray-600"
-              >
-                <span>
-                  {item.from ? (
-                    <>
-                      <strong>{item.from}</strong>
-                      {' → '}
-                    </>
-                  ) : null}
+          {interviewRounds.length === 0 ? (
+            <p className="detail-empty">
+              No interview rounds scheduled.
+            </p>
+          ) : (
+            <ul className="interview-round-list">
+              {interviewRounds.map(
+                (round) => (
+                  <li
+                    key={round.id}
+                    className="interview-round-summary"
+                  >
+                    <strong>
+                      {round.type}
+                    </strong>
 
-                  <strong>{item.to}</strong>
-                </span>
+                    <span>
+                      {round.date}
+                    </span>
 
-                <span className="text-gray-400">
-                  {new Date(
-                    item.changedAt
-                  ).toLocaleDateString()}
-                </span>
-              </li>
-            ))}
+                    {round.note && (
+                      <span>
+                        — {round.note}
+                      </span>
+                    )}
+                  </li>
+                )
+              )}
+            </ul>
+          )}
+        </section>
+
+        {/* Transition History */}
+        <section
+          className="history-section"
+          aria-label="Transition history"
+        >
+          <h4>
+            Transition History (
+            {sortedHistory.length})
+          </h4>
+
+          <ul className="history-list">
+            {sortedHistory.map(
+              (item) => (
+                <li
+                  key={item.id}
+                  className="history-item"
+                >
+                  <span>
+                    {item.from && (
+                      <>
+                        <strong>
+                          {item.from}
+                        </strong>
+                        {' → '}
+                      </>
+                    )}
+
+                    <strong>
+                      {item.to}
+                    </strong>
+                  </span>
+
+                  <span>
+                    {new Date(
+                      item.changedAt
+                    ).toLocaleString()}
+                  </span>
+                </li>
+              )
+            )}
           </ul>
-        </div>
+        </section>
       </div>
 
       <div className="item-actions">
         <button
           type="button"
           className="edit-button"
-          onClick={() => onEdit(application.id)}
+          onClick={() =>
+            onEdit(application.id)
+          }
           aria-label={`Edit application for ${application.company}`}
         >
           Edit
@@ -137,7 +209,9 @@ function ApplicationItem({
         <button
           type="button"
           className="delete-button"
-          onClick={() => onDelete(application.id)}
+          onClick={() =>
+            onDelete(application.id)
+          }
           aria-label={`Delete application for ${application.company}`}
         >
           Delete

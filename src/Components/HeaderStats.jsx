@@ -1,31 +1,102 @@
-import { ROUNDS, getDerivedRound } from '../Utils/helpers';
+import {
+  ROUNDS,
+  getDerivedRound,
+  countStaleApplications,
+  countUpcomingInterviews,
+} from '../Utils/helpers';
 
-function HeaderStats({ applications }) {
-  const counts = ROUNDS.reduce((acc, round) => {
-    acc[round] = 0;
-    return acc;
-  }, {});
+function HeaderStats({
+  applications,
+}) {
+  /*
+   * Funnel counts are derived on every render.
+   * Nothing is stored separately.
+   */
+  const counts = ROUNDS.reduce(
+    (acc, round) => {
+      acc[round] = 0;
+      return acc;
+    },
+    {}
+  );
 
-  // Compute stat counts from derived rounds
   applications.forEach((app) => {
-    const derivedRound = getDerivedRound(app);
-    if (counts[derivedRound] !== undefined) {
-      counts[derivedRound] += 1;
+    const currentRound =
+      getDerivedRound(app);
+
+    if (
+      counts[currentRound] !== undefined
+    ) {
+      counts[currentRound] += 1;
     }
   });
 
+  /*
+   * Live stale count.
+   */
+  const staleCount =
+    countStaleApplications(
+      applications
+    );
+
+  /*
+   * Live interview count for the next
+   * seven days.
+   */
+  const upcomingInterviews =
+    countUpcomingInterviews(
+      applications
+    );
+
   return (
-    <section className="header-stats" aria-label="Pipeline overview">
+    <section
+      className="header-stats"
+      aria-label="Pipeline overview"
+    >
       <div className="stat-card total">
-        <span className="stat-label">Total</span>
-        <span className="stat-count">{applications.length}</span>
+        <span className="stat-label">
+          Total
+        </span>
+
+        <span className="stat-count">
+          {applications.length}
+        </span>
       </div>
+
       {ROUNDS.map((round) => (
-        <div key={round} className={`stat-card stat-${round.toLowerCase()}`}>
-          <span className="stat-label">{round}</span>
-          <span className="stat-count">{counts[round]}</span>
+        <div
+          key={round}
+          className={`stat-card stat-${round.toLowerCase()}`}
+        >
+          <span className="stat-label">
+            {round}
+          </span>
+
+          <span className="stat-count">
+            {counts[round]}
+          </span>
         </div>
       ))}
+
+      <div className="stat-card stat-stale">
+        <span className="stat-label">
+          Stale
+        </span>
+
+        <span className="stat-count">
+          {staleCount}
+        </span>
+      </div>
+
+      <div className="stat-card stat-upcoming">
+        <span className="stat-label">
+          Interviews Next 7 Days
+        </span>
+
+        <span className="stat-count">
+          {upcomingInterviews}
+        </span>
+      </div>
     </section>
   );
 }

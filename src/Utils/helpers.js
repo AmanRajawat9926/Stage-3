@@ -6,6 +6,13 @@ export const ROUNDS = [
   'Rejected',
 ];
 
+export const INTERVIEW_ROUND_TYPES = [
+  'phone',
+  'tech',
+  'HR',
+  'onsite',
+];
+
 export const getTodayString = () => {
   const today = new Date();
 
@@ -16,68 +23,51 @@ export const getTodayString = () => {
   return `${year}-${month}-${day}`;
 };
 
-/**
- * Migration helper to update Stage 1 records
- * without losing existing application data.
- */
 export const migrateApplications = (apps) => {
-  if (!Array.isArray(apps)) return [];
+  if (!Array.isArray(apps)) {
+    return [];
+  }
 
   return apps.map((app) => {
-    /*
-     * If history already exists, the application
-     * is already using the new data shape.
-     *
-     * We check Array.isArray only so that an empty
-     * history array is not migrated again.
-     */
     if (Array.isArray(app.history)) {
-      return app;
+      return {
+        ...app,
+        interviewRounds: Array.isArray(app.interviewRounds)
+          ? app.interviewRounds
+          : [],
+      };
     }
 
-    /*
-     * Get the old current round from Stage 1 data.
-     */
-    const legacyRound = app.round || app.stage || 'Applied';
+    const legacyRound =
+      app.round || app.stage || 'Applied';
 
     const migrationTimestamp = app.createdAt
       ? new Date(app.createdAt).toISOString()
       : new Date().toISOString();
 
-    /*
-     * Seed exactly one transition for the
-     * existing Stage 1 application.
-     */
     const initialTransition = {
-      id: `trans-migrated-${app.id || Date.now()}`,
+      id: `trans-migrated-${app.id || crypto.randomUUID()}`,
       from: null,
       to: legacyRound,
       changedAt: migrationTimestamp,
     };
 
-    /*
-     * Remove old round/stage fields.
-     * Current round will now be derived from history.
-     */
-    const { round, stage, ...cleanApp } = app;
+    const {
+      round,
+      stage,
+      ...cleanApp
+    } = app;
 
     return {
       ...cleanApp,
       history: [initialTransition],
+      interviewRounds: Array.isArray(app.interviewRounds)
+        ? app.interviewRounds
+        : [],
     };
   });
 };
 
-/**
- * Single source of truth:
- * current round is derived from transition history.
- *
- * History is stored chronologically:
- * oldest transition -> newest transition.
- *
- * Therefore, the last history entry represents
- * the current round.
- */
 export const getDerivedRound = (application) => {
   if (
     !application ||
@@ -93,18 +83,31 @@ export const getDerivedRound = (application) => {
   return latestTransition?.to || 'Applied';
 };
 
-export const calculateDaysSinceApplied = (appliedDateString) => {
-  if (!appliedDateString) return 0;
+export const calculateDaysSinceApplied = (
+  appliedDateString
+) => {
+  if (!appliedDateString) {
+    return 0;
+  }
 
-  const parts = appliedDateString.split('-').map(Number);
+  const parts = appliedDateString
+    .split('-')
+    .map(Number);
 
-  if (parts.length !== 3 || parts.some(isNaN)) {
+  if (
+    parts.length !== 3 ||
+    parts.some(Number.isNaN)
+  ) {
     return 0;
   }
 
   const [year, month, day] = parts;
 
-  const appliedUTC = Date.UTC(year, month - 1, day);
+  const appliedUTC = Date.UTC(
+    year,
+    month - 1,
+    day
+  );
 
   const now = new Date();
 
@@ -118,12 +121,17 @@ export const calculateDaysSinceApplied = (appliedDateString) => {
 
   return Math.max(
     0,
-    Math.floor(diffTime / (1000 * 60 * 60 * 24))
+    Math.floor(
+      diffTime / (1000 * 60 * 60 * 24)
+    )
   );
 };
 
 export const isApplicationStale = (application) => {
-  if (!application || !application.appliedDate) {
+  if (
+    !application ||
+    !application.appliedDate
+  ) {
     return false;
   }
 
@@ -131,9 +139,13 @@ export const isApplicationStale = (application) => {
     application.appliedDate
   );
 
-  const currentRound = getDerivedRound(application);
+  const currentRound =
+    getDerivedRound(application);
 
-  const staleRounds = ['Applied', 'Screen'];
+  const staleRounds = [
+    'Applied',
+    'Screen',
+  ];
 
   return (
     days > 14 &&
@@ -141,8 +153,77 @@ export const isApplicationStale = (application) => {
   );
 };
 
+export const countStaleApplications = (
+  applications
+) => {
+  if (!Array.isArray(applications)) {
+    return 0;
+  }
+
+  return applications.filter(
+    isApplicationStale
+  ).length;
+};
+
+export const isInterviewWithinNext7Days = (
+  interviewRound
+) => {
+  if (!interviewRound?.date) {
+    return false;
+  }
+
+  const today = new Date();
+
+  today.setHours(0, 0, 0, 0);
+
+  const nextSevenDays = new Date(today);
+
+  nextSevenDays.setDate(
+    nextSevenDays.getDate() + 7
+  );
+
+  const interviewDate = new Date(
+    `${interviewRound.date}T00:00:00`
+  );
+
+  return (
+    interviewDate >= today &&
+    interviewDate <= nextSevenDays
+  );
+};
+
+export const countUpcomingInterviews = (
+  applications
+) => {
+  if (!Array.isArray(applications)) {
+    return 0;
+  }
+
+  return applications.reduce(
+    (count, application) => {
+      const interviewRounds =
+        Array.isArray(
+          application.interviewRounds
+        )
+          ? application.interviewRounds
+          : [];
+
+      const upcoming =
+        interviewRounds.filter(
+          isInterviewWithinNext7Days
+        ).length;
+
+      return count + upcoming;
+    },
+    0
+  );
+};
+
 export const isValidUrl = (value) => {
-  if (!value || typeof value !== 'string') {
+  if (
+    !value ||
+    typeof value !== 'string'
+  ) {
     return false;
   }
 
@@ -165,7 +246,9 @@ export const isValidUrl = (value) => {
 };
 
 export const formatUrl = (url) => {
-  if (!url) return '';
+  if (!url) {
+    return '';
+  }
 
   const trimmed = url.trim();
 
@@ -179,7 +262,10 @@ export const formatUrl = (url) => {
   return `https://${trimmed}`;
 };
 
-export const validateField = (name, value) => {
+export const validateField = (
+  name,
+  value
+) => {
   const strVal =
     typeof value === 'string'
       ? value.trim()
@@ -229,7 +315,9 @@ export const validateField = (name, value) => {
   }
 };
 
-export const validateApplication = (formData) => {
+export const validateApplication = (
+  formData
+) => {
   const fields = [
     'company',
     'role',

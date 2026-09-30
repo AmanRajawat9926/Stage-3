@@ -5,12 +5,9 @@ import {
 } from 'react';
 
 import HeaderStats from './Components/HeaderStats';
-
-import FilterBar from './components/FilterBar';
-
-import ApplicationForm from './components/ApplicationForm';
-
-import ApplicationList from './components/ApplicationList';
+import FilterBar from './Components/FilterBar';
+import ApplicationForm from './Components/ApplicationForm';
+import ApplicationList from './Components/ApplicationList';
 
 import {
   migrateApplications,
@@ -21,26 +18,28 @@ const STORAGE_KEY =
   'penthara_job_applications';
 
 function App() {
-  /*
-   * Load applications from localStorage.
-   *
-   * Existing Stage 1 records are migrated here.
-   */
   const [applications, setApplications] =
     useState(() => {
       const raw =
-        localStorage.getItem(STORAGE_KEY);
+        localStorage.getItem(
+          STORAGE_KEY
+        );
 
-      if (!raw) return [];
+      if (!raw) {
+        return [];
+      }
 
       try {
-        const parsed = JSON.parse(raw);
+        const parsed =
+          JSON.parse(raw);
 
-        return migrateApplications(parsed);
-      } catch (e) {
+        return migrateApplications(
+          parsed
+        );
+      } catch (error) {
         console.error(
           'Failed to parse local storage:',
-          e
+          error
         );
 
         return [];
@@ -56,15 +55,36 @@ function App() {
   const [editingId, setEditingId] =
     useState(null);
 
-  /*
-   * Save applications whenever state changes.
-   */
+  const [undoAction, setUndoAction] =
+    useState(null);
+
   useEffect(() => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify(applications)
-    );
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(applications)
+      );
+    } catch (error) {
+      console.error(
+        'Failed to save applications:',
+        error
+      );
+    }
   }, [applications]);
+
+  useEffect(() => {
+    if (!undoAction) {
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      setUndoAction(null);
+    }, 5000);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [undoAction]);
 
   const handleAddApplication = (
     newAppData
@@ -75,7 +95,10 @@ function App() {
     ]);
   };
 
-  const handleSaveEdit = (updatedApp) => {
+  const handleSaveEdit = (
+    updatedApp,
+    newTransition
+  ) => {
     setApplications((prev) =>
       prev.map((app) =>
         app.id === updatedApp.id
@@ -85,6 +108,16 @@ function App() {
     );
 
     setEditingId(null);
+
+    if (newTransition) {
+      setUndoAction({
+        applicationId:
+          updatedApp.id,
+
+        transition:
+          newTransition,
+      });
+    }
   };
 
   const handleDelete = (id) => {
@@ -93,6 +126,59 @@ function App() {
         (app) => app.id !== id
       )
     );
+
+    setUndoAction((prev) => {
+      if (
+        prev?.applicationId === id
+      ) {
+        return null;
+      }
+
+      return prev;
+    });
+
+    if (editingId === id) {
+      setEditingId(null);
+    }
+  };
+
+  const handleUndo = () => {
+    if (!undoAction) {
+      return;
+    }
+
+    const {
+      applicationId,
+      transition,
+    } = undoAction;
+
+    setApplications((prev) =>
+      prev.map((app) => {
+        if (
+          app.id !== applicationId
+        ) {
+          return app;
+        }
+
+        const history =
+          Array.isArray(
+            app.history
+          )
+            ? app.history
+            : [];
+
+        return {
+          ...app,
+          history: history.filter(
+            (item) =>
+              item.id !==
+              transition.id
+          ),
+        };
+      })
+    );
+
+    setUndoAction(null);
   };
 
   const handleClearFilters = () => {
@@ -100,17 +186,12 @@ function App() {
     setSelectedRound('All');
   };
 
-  /*
-   * Filter and sort applications.
-   *
-   * Current round is always derived from
-   * transition history.
-   */
   const filteredAndSortedApplications =
     useMemo(() => {
-      const query = searchQuery
-        .trim()
-        .toLowerCase();
+      const query =
+        searchQuery
+          .trim()
+          .toLowerCase();
 
       return applications
         .filter((app) => {
@@ -119,16 +200,21 @@ function App() {
 
           const matchesRound =
             selectedRound === 'All' ||
-            currentRound === selectedRound;
+            currentRound ===
+              selectedRound;
+
+          const company =
+            app.company
+              ?.toLowerCase() || '';
+
+          const role =
+            app.role
+              ?.toLowerCase() || '';
 
           const matchesSearch =
             !query ||
-            app.company
-              .toLowerCase()
-              .includes(query) ||
-            app.role
-              .toLowerCase()
-              .includes(query);
+            company.includes(query) ||
+            role.includes(query);
 
           return (
             matchesRound &&
@@ -155,7 +241,9 @@ function App() {
             return timeB - timeA;
           }
 
-          return String(b.id).localeCompare(
+          return String(
+            b.id
+          ).localeCompare(
             String(a.id)
           );
         });
@@ -168,7 +256,9 @@ function App() {
   return (
     <div className="app-container">
       <header className="app-header">
-        <h1>Job Application Tracker</h1>
+        <h1>
+          Job Application Tracker
+        </h1>
 
         <HeaderStats
           applications={applications}
@@ -184,18 +274,27 @@ function App() {
 
         <FilterBar
           searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          selectedRound={selectedRound}
-          onRoundChange={setSelectedRound}
+          onSearchChange={
+            setSearchQuery
+          }
+          selectedRound={
+            selectedRound
+          }
+          onRoundChange={
+            setSelectedRound
+          }
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
+              e.preventDefault();
               handleClearFilters();
             }
           }}
         />
 
         <ApplicationList
-          totalCount={applications.length}
+          totalCount={
+            applications.length
+          }
           filteredApplications={
             filteredAndSortedApplications
           }
@@ -206,13 +305,41 @@ function App() {
           onCancelEdit={() =>
             setEditingId(null)
           }
-          onSaveEdit={handleSaveEdit}
+          onSaveEdit={
+            handleSaveEdit
+          }
           onDelete={handleDelete}
           onClearFilters={
             handleClearFilters
           }
         />
       </main>
+
+      {undoAction && (
+        <div
+          className="undo-toast"
+          role="status"
+          aria-live="polite"
+        >
+          <span>
+            Round changed from{' '}
+            <strong>
+              {undoAction.transition.from}
+            </strong>{' '}
+            to{' '}
+            <strong>
+              {undoAction.transition.to}
+            </strong>
+          </span>
+
+          <button
+            type="button"
+            onClick={handleUndo}
+          >
+            Undo
+          </button>
+        </div>
+      )}
     </div>
   );
 }
