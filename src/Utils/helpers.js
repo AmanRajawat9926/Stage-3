@@ -17,27 +17,46 @@ export const getTodayString = () => {
   const today = new Date();
 
   const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
+
+  const month = String(
+    today.getMonth() + 1
+  ).padStart(2, '0');
+
   const day = String(today.getDate()).padStart(2, '0');
 
   return `${year}-${month}-${day}`;
 };
 
+/*
+ * Migrates old Stage 1 applications into the new
+ * history-based data model.
+ *
+ * Existing applications receive exactly one transition.
+ */
 export const migrateApplications = (apps) => {
   if (!Array.isArray(apps)) {
     return [];
   }
 
   return apps.map((app) => {
+    /*
+     * Already migrated application.
+     */
     if (Array.isArray(app.history)) {
       return {
         ...app,
-        interviewRounds: Array.isArray(app.interviewRounds)
+
+        interviewRounds: Array.isArray(
+          app.interviewRounds
+        )
           ? app.interviewRounds
           : [],
       };
     }
 
+    /*
+     * Legacy Stage 1 round/stage value.
+     */
     const legacyRound =
       app.round || app.stage || 'Applied';
 
@@ -46,12 +65,17 @@ export const migrateApplications = (apps) => {
       : new Date().toISOString();
 
     const initialTransition = {
-      id: `trans-migrated-${app.id || crypto.randomUUID()}`,
+      id: `trans-migrated-${
+        app.id || crypto.randomUUID()
+      }`,
       from: null,
       to: legacyRound,
       changedAt: migrationTimestamp,
     };
 
+    /*
+     * Remove old round/stage fields.
+     */
     const {
       round,
       stage,
@@ -60,14 +84,21 @@ export const migrateApplications = (apps) => {
 
     return {
       ...cleanApp,
+
       history: [initialTransition],
-      interviewRounds: Array.isArray(app.interviewRounds)
+
+      interviewRounds: Array.isArray(
+        app.interviewRounds
+      )
         ? app.interviewRounds
         : [],
     };
   });
 };
 
+/*
+ * Current round is derived from the last transition.
+ */
 export const getDerivedRound = (application) => {
   if (
     !application ||
@@ -78,7 +109,9 @@ export const getDerivedRound = (application) => {
   }
 
   const latestTransition =
-    application.history[application.history.length - 1];
+    application.history[
+      application.history.length - 1
+    ];
 
   return latestTransition?.to || 'Applied';
 };
@@ -117,17 +150,21 @@ export const calculateDaysSinceApplied = (
     now.getDate()
   );
 
-  const diffTime = todayUTC - appliedUTC;
+  const diffTime =
+    todayUTC - appliedUTC;
 
   return Math.max(
     0,
     Math.floor(
-      diffTime / (1000 * 60 * 60 * 24)
+      diffTime /
+        (1000 * 60 * 60 * 24)
     )
   );
 };
 
-export const isApplicationStale = (application) => {
+export const isApplicationStale = (
+  application
+) => {
   if (
     !application ||
     !application.appliedDate

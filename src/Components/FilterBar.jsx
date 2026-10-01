@@ -26,9 +26,7 @@ function FilterBar({
           placeholder="Search by company or role... (Esc to clear)"
           value={searchQuery}
           onChange={(e) =>
-            onSearchChange(
-              e.target.value
-            )
+            onSearchChange(e.target.value)
           }
         />
       </div>
@@ -45,20 +43,13 @@ function FilterBar({
           id="round-filter"
           value={selectedRound}
           onChange={(e) =>
-            onRoundChange(
-              e.target.value
-            )
+            onRoundChange(e.target.value)
           }
         >
-          <option value="All">
-            All Rounds
-          </option>
+          <option value="All">All Rounds</option>
 
           {ROUNDS.map((round) => (
-            <option
-              key={round}
-              value={round}
-            >
+            <option key={round} value={round}>
               {round}
             </option>
           ))}

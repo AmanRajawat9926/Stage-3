@@ -10,6 +10,8 @@ function ApplicationList({
   onSaveEdit,
   onDelete,
   onClearFilters,
+  onAddInterviewRound,
+  onRemoveInterviewRound,
 }) {
   if (totalCount === 0) {
     return (
@@ -23,19 +25,15 @@ function ApplicationList({
           </h3>
 
           <p className="empty-desc">
-            Your tracker is empty. Use the
-            form above to add your first job
-            application and track your
-            status.
+            Your tracker is empty. Use the form above to add
+            your first job application and track your status.
           </p>
         </div>
       </section>
     );
   }
 
-  if (
-    filteredApplications.length === 0
-  ) {
+  if (filteredApplications.length === 0) {
     return (
       <section
         className="application-list empty-state"
@@ -47,8 +45,8 @@ function ApplicationList({
           </h3>
 
           <p className="empty-desc">
-            No applications match your
-            active search and round filters.
+            No applications match your active search and round
+            filters.
           </p>
 
           <button
@@ -70,29 +68,31 @@ function ApplicationList({
     >
       <div className="list-header">
         <h2>
-          Applications (
-          {filteredApplications.length})
+          Applications ({filteredApplications.length})
         </h2>
       </div>
 
       <div className="application-items">
-        {filteredApplications.map(
-          (application) =>
-            editingId === application.id ? (
-              <EditApplicationRow
-                key={application.id}
-                application={application}
-                onSave={onSaveEdit}
-                onCancel={onCancelEdit}
-              />
-            ) : (
-              <ApplicationItem
-                key={application.id}
-                application={application}
-                onEdit={onStartEdit}
-                onDelete={onDelete}
-              />
-            )
+        {filteredApplications.map((application) =>
+          editingId === application.id ? (
+            <EditApplicationRow
+              key={application.id}
+              application={application}
+              onSave={onSaveEdit}
+              onCancel={onCancelEdit}
+            />
+          ) : (
+            <ApplicationItem
+              key={application.id}
+              application={application}
+              onEdit={onStartEdit}
+              onDelete={onDelete}
+              onAddInterviewRound={onAddInterviewRound}
+              onRemoveInterviewRound={
+                onRemoveInterviewRound
+              }
+            />
+          )
         )}
       </div>
     </section>

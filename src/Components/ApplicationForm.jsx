@@ -15,33 +15,21 @@ const INITIAL_FORM = {
   jobLink: '',
 };
 
-function ApplicationForm({
-  onAddApplication,
-}) {
-  const [formData, setFormData] =
-    useState(INITIAL_FORM);
-
+function ApplicationForm({ onAddApplication }) {
+  const [formData, setFormData] = useState(INITIAL_FORM);
   const [errors, setErrors] = useState({});
-  const [touched, setTouched] =
-    useState({});
+  const [touched, setTouched] = useState({});
 
   const handleChange = (e) => {
-    const {
-      name,
-      value,
-    } = e.target;
+    const { name, value } = e.target;
 
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
 
-    if (
-      touched[name] ||
-      errors[name]
-    ) {
-      const errorMsg =
-        validateField(name, value);
+    if (touched[name] || errors[name]) {
+      const errorMsg = validateField(name, value);
 
       setErrors((prev) => ({
         ...prev,
@@ -51,18 +39,14 @@ function ApplicationForm({
   };
 
   const handleBlur = (e) => {
-    const {
-      name,
-      value,
-    } = e.target;
+    const { name, value } = e.target;
 
     setTouched((prev) => ({
       ...prev,
       [name]: true,
     }));
 
-    const errorMsg =
-      validateField(name, value);
+    const errorMsg = validateField(name, value);
 
     setErrors((prev) => ({
       ...prev,
@@ -90,28 +74,19 @@ function ApplicationForm({
       jobLink: true,
     });
 
-    const validationErrors =
-      validateApplication(formData);
+    const validationErrors = validateApplication(formData);
 
-    if (
-      Object.keys(validationErrors)
-        .length > 0
-    ) {
+    if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
     }
 
-    const timestamp =
-      new Date().toISOString();
+    const timestamp = new Date().toISOString();
 
     onAddApplication({
       id: crypto.randomUUID(),
-
-      company:
-        formData.company.trim(),
-
-      role:
-        formData.role.trim(),
+      company: formData.company.trim(),
+      role: formData.role.trim(),
 
       history: [
         {
@@ -124,12 +99,8 @@ function ApplicationForm({
 
       interviewRounds: [],
 
-      appliedDate:
-        formData.appliedDate,
-
-      jobLink:
-        formData.jobLink.trim(),
-
+      appliedDate: formData.appliedDate,
+      jobLink: formData.jobLink.trim(),
       createdAt: Date.now(),
     });
 
@@ -158,14 +129,10 @@ function ApplicationForm({
       <div className="form-row">
         <div
           className={`form-field ${
-            errors.company
-              ? 'has-error'
-              : ''
+            errors.company ? 'has-error' : ''
           }`}
         >
-          <label htmlFor="company">
-            Company *
-          </label>
+          <label htmlFor="company">Company *</label>
 
           <input
             id="company"
@@ -175,18 +142,10 @@ function ApplicationForm({
             onChange={handleChange}
             onBlur={handleBlur}
             placeholder="e.g. Stripe"
-            className={
-              errors.company
-                ? 'input-error'
-                : ''
-            }
-            aria-invalid={Boolean(
-              errors.company
-            )}
+            className={errors.company ? 'input-error' : ''}
+            aria-invalid={Boolean(errors.company)}
             aria-describedby={
-              errors.company
-                ? 'company-error'
-                : undefined
+              errors.company ? 'company-error' : undefined
             }
           />
 
@@ -203,14 +162,10 @@ function ApplicationForm({
 
         <div
           className={`form-field ${
-            errors.role
-              ? 'has-error'
-              : ''
+            errors.role ? 'has-error' : ''
           }`}
         >
-          <label htmlFor="role">
-            Role *
-          </label>
+          <label htmlFor="role">Role *</label>
 
           <input
             id="role"
@@ -220,18 +175,10 @@ function ApplicationForm({
             onChange={handleChange}
             onBlur={handleBlur}
             placeholder="e.g. Frontend Engineer"
-            className={
-              errors.role
-                ? 'input-error'
-                : ''
-            }
-            aria-invalid={Boolean(
-              errors.role
-            )}
+            className={errors.role ? 'input-error' : ''}
+            aria-invalid={Boolean(errors.role)}
             aria-describedby={
-              errors.role
-                ? 'role-error'
-                : undefined
+              errors.role ? 'role-error' : undefined
             }
           />
 
@@ -249,9 +196,7 @@ function ApplicationForm({
 
       <div className="form-row">
         <div className="form-field">
-          <label htmlFor="round">
-            Initial Round
-          </label>
+          <label htmlFor="round">Initial Round</label>
 
           <select
             id="round"
@@ -260,10 +205,7 @@ function ApplicationForm({
             onChange={handleChange}
           >
             {ROUNDS.map((round) => (
-              <option
-                key={round}
-                value={round}
-              >
+              <option key={round} value={round}>
                 {round}
               </option>
             ))}
@@ -272,14 +214,10 @@ function ApplicationForm({
 
         <div
           className={`form-field ${
-            errors.appliedDate
-              ? 'has-error'
-              : ''
+            errors.appliedDate ? 'has-error' : ''
           }`}
         >
-          <label htmlFor="appliedDate">
-            Applied Date *
-          </label>
+          <label htmlFor="appliedDate">Applied Date *</label>
 
           <input
             id="appliedDate"
@@ -290,13 +228,9 @@ function ApplicationForm({
             onChange={handleChange}
             onBlur={handleBlur}
             className={
-              errors.appliedDate
-                ? 'input-error'
-                : ''
+              errors.appliedDate ? 'input-error' : ''
             }
-            aria-invalid={Boolean(
-              errors.appliedDate
-            )}
+            aria-invalid={Boolean(errors.appliedDate)}
             aria-describedby={
               errors.appliedDate
                 ? 'appliedDate-error'
@@ -318,14 +252,10 @@ function ApplicationForm({
 
       <div
         className={`form-field full-width ${
-          errors.jobLink
-            ? 'has-error'
-            : ''
+          errors.jobLink ? 'has-error' : ''
         }`}
       >
-        <label htmlFor="jobLink">
-          Job Posting Link *
-        </label>
+        <label htmlFor="jobLink">Job Posting Link *</label>
 
         <input
           id="jobLink"
@@ -335,18 +265,10 @@ function ApplicationForm({
           onChange={handleChange}
           onBlur={handleBlur}
           placeholder="https://company.com/careers/frontend-role"
-          className={
-            errors.jobLink
-              ? 'input-error'
-              : ''
-          }
-          aria-invalid={Boolean(
-            errors.jobLink
-          )}
+          className={errors.jobLink ? 'input-error' : ''}
+          aria-invalid={Boolean(errors.jobLink)}
           aria-describedby={
-            errors.jobLink
-              ? 'jobLink-error'
-              : undefined
+            errors.jobLink ? 'jobLink-error' : undefined
           }
         />
 
@@ -362,10 +284,7 @@ function ApplicationForm({
       </div>
 
       <div className="form-actions">
-        <button
-          type="submit"
-          className="primary-button"
-        >
+        <button type="submit" className="primary-button">
           Add Application
         </button>
 

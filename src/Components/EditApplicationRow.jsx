@@ -13,9 +13,6 @@ function EditApplicationRow({
   onSave,
   onCancel,
 }) {
-  /*
-   * Current round is always derived from history.
-   */
   const currentRound = getDerivedRound(application);
 
   const [formData, setFormData] = useState({
@@ -57,49 +54,42 @@ function EditApplicationRow({
       return;
     }
 
-    /*
-     * Keep the existing history array.
-     */
     let updatedHistory = Array.isArray(
       application.history
     )
       ? [...application.history]
       : [];
 
-    /*
-     * If the user changes the round, add a new
-     * transition at the END of the history array.
-     *
-     * History order:
-     * oldest -> newest
-     */
+    let newTransition = null;
+
     if (formData.round !== currentRound) {
-      updatedHistory.push({
+      newTransition = {
         id: crypto.randomUUID(),
         from: currentRound,
         to: formData.round,
         changedAt: new Date().toISOString(),
-      });
+      };
+
+      updatedHistory.push(newTransition);
     }
 
-    /*
-     * Remove old round/stage fields so that
-     * history remains the single source of truth.
-     */
     const {
       round,
       stage,
       ...cleanApp
     } = application;
 
-    onSave({
-      ...cleanApp,
-      company: formData.company.trim(),
-      role: formData.role.trim(),
-      history: updatedHistory,
-      appliedDate: formData.appliedDate,
-      jobLink: formData.jobLink.trim(),
-    });
+    onSave(
+      {
+        ...cleanApp,
+        company: formData.company.trim(),
+        role: formData.role.trim(),
+        history: updatedHistory,
+        appliedDate: formData.appliedDate,
+        jobLink: formData.jobLink.trim(),
+      },
+      newTransition
+    );
   };
 
   const handleKeyDown = (e) => {
@@ -137,17 +127,12 @@ function EditApplicationRow({
             onChange={handleChange}
             autoFocus
             className={
-              errors.company
-                ? 'input-error'
-                : ''
+              errors.company ? 'input-error' : ''
             }
           />
 
           {errors.company && (
-            <p
-              className="error-message"
-              role="alert"
-            >
+            <p className="error-message" role="alert">
               {errors.company}
             </p>
           )}
@@ -158,9 +143,7 @@ function EditApplicationRow({
             errors.role ? 'has-error' : ''
           }`}
         >
-          <label
-            htmlFor={`edit-role-${application.id}`}
-          >
+          <label htmlFor={`edit-role-${application.id}`}>
             Role *
           </label>
 
@@ -170,27 +153,18 @@ function EditApplicationRow({
             type="text"
             value={formData.role}
             onChange={handleChange}
-            className={
-              errors.role
-                ? 'input-error'
-                : ''
-            }
+            className={errors.role ? 'input-error' : ''}
           />
 
           {errors.role && (
-            <p
-              className="error-message"
-              role="alert"
-            >
+            <p className="error-message" role="alert">
               {errors.role}
             </p>
           )}
         </div>
 
         <div className="form-field">
-          <label
-            htmlFor={`edit-round-${application.id}`}
-          >
+          <label htmlFor={`edit-round-${application.id}`}>
             Round
           </label>
 
@@ -201,10 +175,7 @@ function EditApplicationRow({
             onChange={handleChange}
           >
             {ROUNDS.map((round) => (
-              <option
-                key={round}
-                value={round}
-              >
+              <option key={round} value={round}>
                 {round}
               </option>
             ))}
@@ -213,9 +184,7 @@ function EditApplicationRow({
 
         <div
           className={`form-field ${
-            errors.appliedDate
-              ? 'has-error'
-              : ''
+            errors.appliedDate ? 'has-error' : ''
           }`}
         >
           <label
@@ -232,17 +201,12 @@ function EditApplicationRow({
             value={formData.appliedDate}
             onChange={handleChange}
             className={
-              errors.appliedDate
-                ? 'input-error'
-                : ''
+              errors.appliedDate ? 'input-error' : ''
             }
           />
 
           {errors.appliedDate && (
-            <p
-              className="error-message"
-              role="alert"
-            >
+            <p className="error-message" role="alert">
               {errors.appliedDate}
             </p>
           )}
@@ -250,9 +214,7 @@ function EditApplicationRow({
 
         <div
           className={`form-field full-width ${
-            errors.jobLink
-              ? 'has-error'
-              : ''
+            errors.jobLink ? 'has-error' : ''
           }`}
         >
           <label
@@ -268,17 +230,12 @@ function EditApplicationRow({
             value={formData.jobLink}
             onChange={handleChange}
             className={
-              errors.jobLink
-                ? 'input-error'
-                : ''
+              errors.jobLink ? 'input-error' : ''
             }
           />
 
           {errors.jobLink && (
-            <p
-              className="error-message"
-              role="alert"
-            >
+            <p className="error-message" role="alert">
               {errors.jobLink}
             </p>
           )}

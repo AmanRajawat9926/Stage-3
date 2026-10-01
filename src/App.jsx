@@ -95,6 +95,63 @@ function App() {
     ]);
   };
 
+  const handleAddInterviewRound = (
+    applicationId,
+    newRound
+  ) => {
+    setApplications((prev) =>
+      prev.map((app) => {
+        if (app.id !== applicationId) {
+          return app;
+        }
+
+        const interviewRounds =
+          Array.isArray(
+            app.interviewRounds
+          )
+            ? app.interviewRounds
+            : [];
+
+        return {
+          ...app,
+          interviewRounds: [
+            ...interviewRounds,
+            newRound,
+          ],
+        };
+      })
+    );
+  };
+
+  const handleRemoveInterviewRound = (
+    applicationId,
+    roundId
+  ) => {
+    setApplications((prev) =>
+      prev.map((app) => {
+        if (app.id !== applicationId) {
+          return app;
+        }
+
+        const interviewRounds =
+          Array.isArray(
+            app.interviewRounds
+          )
+            ? app.interviewRounds
+            : [];
+
+        return {
+          ...app,
+          interviewRounds:
+            interviewRounds.filter(
+              (round) =>
+                round.id !== roundId
+            ),
+        };
+      })
+    );
+  };
+
   const handleSaveEdit = (
     updatedApp,
     newTransition
@@ -113,7 +170,6 @@ function App() {
       setUndoAction({
         applicationId:
           updatedApp.id,
-
         transition:
           newTransition,
       });
@@ -311,6 +367,12 @@ function App() {
           onDelete={handleDelete}
           onClearFilters={
             handleClearFilters
+          }
+          onAddInterviewRound={
+            handleAddInterviewRound
+          }
+          onRemoveInterviewRound={
+            handleRemoveInterviewRound
           }
         />
       </main>

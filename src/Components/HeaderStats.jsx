@@ -5,48 +5,25 @@ import {
   countUpcomingInterviews,
 } from '../Utils/helpers';
 
-function HeaderStats({
-  applications,
-}) {
-  /*
-   * Funnel counts are derived on every render.
-   * Nothing is stored separately.
-   */
-  const counts = ROUNDS.reduce(
-    (acc, round) => {
-      acc[round] = 0;
-      return acc;
-    },
-    {}
-  );
+function HeaderStats({ applications }) {
+  const counts = ROUNDS.reduce((acc, round) => {
+    acc[round] = 0;
+    return acc;
+  }, {});
 
   applications.forEach((app) => {
-    const currentRound =
-      getDerivedRound(app);
+    const currentRound = getDerivedRound(app);
 
-    if (
-      counts[currentRound] !== undefined
-    ) {
+    if (counts[currentRound] !== undefined) {
       counts[currentRound] += 1;
     }
   });
 
-  /*
-   * Live stale count.
-   */
   const staleCount =
-    countStaleApplications(
-      applications
-    );
+    countStaleApplications(applications);
 
-  /*
-   * Live interview count for the next
-   * seven days.
-   */
   const upcomingInterviews =
-    countUpcomingInterviews(
-      applications
-    );
+    countUpcomingInterviews(applications);
 
   return (
     <section
@@ -54,9 +31,7 @@ function HeaderStats({
       aria-label="Pipeline overview"
     >
       <div className="stat-card total">
-        <span className="stat-label">
-          Total
-        </span>
+        <span className="stat-label">Total</span>
 
         <span className="stat-count">
           {applications.length}
@@ -68,9 +43,7 @@ function HeaderStats({
           key={round}
           className={`stat-card stat-${round.toLowerCase()}`}
         >
-          <span className="stat-label">
-            {round}
-          </span>
+          <span className="stat-label">{round}</span>
 
           <span className="stat-count">
             {counts[round]}
@@ -79,9 +52,7 @@ function HeaderStats({
       ))}
 
       <div className="stat-card stat-stale">
-        <span className="stat-label">
-          Stale
-        </span>
+        <span className="stat-label">Stale</span>
 
         <span className="stat-count">
           {staleCount}
