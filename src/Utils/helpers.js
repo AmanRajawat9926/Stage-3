@@ -13,367 +13,310 @@ export const INTERVIEW_ROUND_TYPES = [
   'onsite',
 ];
 
+/* --------------------------------------------------
+   Internal Helpers
+-------------------------------------------------- */
+
+const generateUUID = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 9)}`;
+};
+
+/* --------------------------------------------------
+   Date Helpers
+-------------------------------------------------- */
+
 export const getTodayString = () => {
   const today = new Date();
-
   const year = today.getFullYear();
-
-  const month = String(
-    today.getMonth() + 1
-  ).padStart(2, '0');
-
+  const month = String(today.getMonth() + 1).padStart(2, '0');
   const day = String(today.getDate()).padStart(2, '0');
 
   return `${year}-${month}-${day}`;
 };
 
-/*
- * Migrates old Stage 1 applications into the new
- * history-based data model.
- *
- * Existing applications receive exactly one transition.
- */
+/* --------------------------------------------------
+   Validation
+-------------------------------------------------- */
+
+export const validateField = (name, value) => {
+  const trimmedValue = String(value ?? '').trim();
+
+  if (name === 'company') {
+    return !trimmedValue ? 'Company is required.' : '';
+  }
+
+  if (name === 'role') {
+    return !trimmedValue ? 'Role is required.' : '';
+  }
+
+  if (name === 'appliedDate') {
+    if (!trimmedValue) {
+      return 'Applied date is required.';
+    }
+    if (trimmedValue > getTodayString()) {
+      return 'Applied date cannot be in the future.';
+    }
+    return '';
+  }
+
+  if (name === 'jobLink') {
+    if (!trimmedValue) {
+      return 'Job link is required.';
+    }
+
+    try {
+      const formattedUrl = formatUrl(trimmedValue);
+      const parsedUrl = new URL(formattedUrl);
+      return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:'
+        ? ''
+        : 'Please enter a valid HTTP or HTTPS URL.';
+    } catch {
+      return 'Please enter a valid URL.';
+    }
+  }
+
+  return '';
+};
+
+export const validateApplication = (formData) => {
+  const errors = {};
+  const fields = ['company', 'role', 'appliedDate', 'jobLink'];
+
+  fields.forEach((field) => {
+    const error = validateField(field, formData?.[field]);
+    if (error) {
+      errors[field] = error;
+    }
+  });
+
+  return errors;
+};
+
+/* --------------------------------------------------
+   Sorted Transition History & Derived Round
+-------------------------------------------------- */
+
+export const getSortedHistory = (application) => {
+  if (!application || !Array.isArray(application.history)) {
+    return [];
+  }
+
+  return [...application.history].sort((a, b) => {
+    const timeA = new Date(a.changedAt).getTime();
+    const timeB = new Date(b.changedAt).getTime();
+
+    if (timeB !== timeA) {
+      return timeB - timeA;
+    }
+
+    return String(b.id || '').localeCompare(String(a.id || ''));
+  });
+};
+
+export const getDerivedRound = (application) => {
+  const sortedHistory = getSortedHistory(application);
+  return sortedHistory[0]?.to || 'Applied';
+};
+
+/* --------------------------------------------------
+   Migration Helper
+-------------------------------------------------- */
+
 export const migrateApplications = (apps) => {
   if (!Array.isArray(apps)) {
     return [];
   }
 
   return apps.map((app) => {
-    /*
-     * Already migrated application.
-     */
-    if (Array.isArray(app.history)) {
-      return {
-        ...app,
+    const legacyRound = app.round || app.stage || 'Applied';
+    const { round, stage, ...cleanApp } = app;
 
-        interviewRounds: Array.isArray(
-          app.interviewRounds
-        )
-          ? app.interviewRounds
-          : [],
+    if (Array.isArray(app.history) && app.history.length > 0) {
+      return {
+        ...cleanApp,
+        interviewRounds: Array.isArray(app.interviewRounds) ? app.interviewRounds : [],
       };
     }
-
-    /*
-     * Legacy Stage 1 round/stage value.
-     */
-    const legacyRound =
-      app.round || app.stage || 'Applied';
 
     const migrationTimestamp = app.createdAt
       ? new Date(app.createdAt).toISOString()
       : new Date().toISOString();
 
     const initialTransition = {
-      id: `trans-migrated-${
-        app.id || crypto.randomUUID()
-      }`,
+      id: `trans-migrated-${app.id || generateUUID()}`,
       from: null,
       to: legacyRound,
       changedAt: migrationTimestamp,
     };
 
-    /*
-     * Remove old round/stage fields.
-     */
-    const {
-      round,
-      stage,
-      ...cleanApp
-    } = app;
-
     return {
       ...cleanApp,
-
       history: [initialTransition],
-
-      interviewRounds: Array.isArray(
-        app.interviewRounds
-      )
-        ? app.interviewRounds
-        : [],
+      interviewRounds: Array.isArray(app.interviewRounds) ? app.interviewRounds : [],
     };
   });
 };
 
-/*
- * Current round is derived from the last transition.
- */
-export const getDerivedRound = (application) => {
-  if (
-    !application ||
-    !Array.isArray(application.history) ||
-    application.history.length === 0
-  ) {
-    return 'Applied';
-  }
+/* --------------------------------------------------
+   Application Age & Stale Checks
+-------------------------------------------------- */
 
-  const latestTransition =
-    application.history[
-      application.history.length - 1
-    ];
-
-  return latestTransition?.to || 'Applied';
-};
-
-export const calculateDaysSinceApplied = (
-  appliedDateString
-) => {
-  if (!appliedDateString) {
+export const calculateDaysSinceApplied = (appliedDate) => {
+  if (!appliedDate) {
     return 0;
   }
 
-  const parts = appliedDateString
-    .split('-')
-    .map(Number);
+  const [year, month, day] = appliedDate.split('-').map(Number);
+  if (!year || !month || !day) return 0;
 
-  if (
-    parts.length !== 3 ||
-    parts.some(Number.isNaN)
-  ) {
-    return 0;
-  }
+  const appliedUtc = Date.UTC(year, month - 1, day);
+  
+  const todayStr = getTodayString();
+  const [tYear, tMonth, tDay] = todayStr.split('-').map(Number);
+  const todayUtc = Date.UTC(tYear, tMonth - 1, tDay);
 
-  const [year, month, day] = parts;
+  const difference = todayUtc - appliedUtc;
 
-  const appliedUTC = Date.UTC(
-    year,
-    month - 1,
-    day
-  );
-
-  const now = new Date();
-
-  const todayUTC = Date.UTC(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate()
-  );
-
-  const diffTime =
-    todayUTC - appliedUTC;
-
-  return Math.max(
-    0,
-    Math.floor(
-      diffTime /
-        (1000 * 60 * 60 * 24)
-    )
-  );
+  return Math.max(0, Math.floor(difference / (1000 * 60 * 60 * 24)));
 };
 
-export const isApplicationStale = (
-  application
-) => {
-  if (
-    !application ||
-    !application.appliedDate
-  ) {
+export const isApplicationStale = (application) => {
+  if (!application) {
     return false;
   }
 
-  const days = calculateDaysSinceApplied(
-    application.appliedDate
-  );
+  const currentRound = getDerivedRound(application);
 
-  const currentRound =
-    getDerivedRound(application);
+  if (currentRound !== 'Applied' && currentRound !== 'Screen') {
+    return false;
+  }
 
-  const staleRounds = [
-    'Applied',
-    'Screen',
-  ];
-
-  return (
-    days > 14 &&
-    staleRounds.includes(currentRound)
-  );
+  return calculateDaysSinceApplied(application.appliedDate) > 14;
 };
 
-export const countStaleApplications = (
-  applications
-) => {
+export const countStaleApplications = (applications) => {
   if (!Array.isArray(applications)) {
     return 0;
   }
 
-  return applications.filter(
-    isApplicationStale
-  ).length;
+  return applications.filter(isApplicationStale).length;
 };
 
-export const isInterviewWithinNext7Days = (
-  interviewRound
-) => {
+/* --------------------------------------------------
+   Upcoming Interviews
+-------------------------------------------------- */
+
+export const isUpcomingInterview = (interviewRound) => {
   if (!interviewRound?.date) {
     return false;
   }
 
-  const today = new Date();
+  const [year, month, day] = interviewRound.date.split('-').map(Number);
+  if (!year || !month || !day) return false;
 
-  today.setHours(0, 0, 0, 0);
+  const interviewUtc = Date.UTC(year, month - 1, day);
 
-  const nextSevenDays = new Date(today);
+  const todayStr = getTodayString();
+  const [tYear, tMonth, tDay] = todayStr.split('-').map(Number);
+  const todayUtc = Date.UTC(tYear, tMonth - 1, tDay);
 
-  nextSevenDays.setDate(
-    nextSevenDays.getDate() + 7
-  );
+  const sevenDaysUtc = todayUtc + 7 * 24 * 60 * 60 * 1000;
 
-  const interviewDate = new Date(
-    `${interviewRound.date}T00:00:00`
-  );
-
-  return (
-    interviewDate >= today &&
-    interviewDate <= nextSevenDays
-  );
+  return interviewUtc >= todayUtc && interviewUtc <= sevenDaysUtc;
 };
 
-export const countUpcomingInterviews = (
-  applications
-) => {
+export const countUpcomingInterviews = (applications) => {
   if (!Array.isArray(applications)) {
     return 0;
   }
 
-  return applications.reduce(
-    (count, application) => {
-      const interviewRounds =
-        Array.isArray(
-          application.interviewRounds
-        )
-          ? application.interviewRounds
-          : [];
+  return applications.reduce((count, application) => {
+    if (!Array.isArray(application.interviewRounds)) {
+      return count;
+    }
 
-      const upcoming =
-        interviewRounds.filter(
-          isInterviewWithinNext7Days
-        ).length;
-
-      return count + upcoming;
-    },
-    0
-  );
+    const upcomingCount = application.interviewRounds.filter(isUpcomingInterview).length;
+    return count + upcomingCount;
+  }, 0);
 };
 
-export const isValidUrl = (value) => {
-  if (
-    !value ||
-    typeof value !== 'string'
-  ) {
-    return false;
-  }
-
-  const trimmed = value.trim();
-
-  try {
-    const url = new URL(
-      trimmed.startsWith('http')
-        ? trimmed
-        : `https://${trimmed}`
-    );
-
-    return (
-      url.hostname.includes('.') &&
-      url.hostname.length > 3
-    );
-  } catch {
-    return false;
-  }
-};
+/* --------------------------------------------------
+   URL Helper
+-------------------------------------------------- */
 
 export const formatUrl = (url) => {
-  if (!url) {
-    return '';
+  if (!url) return '';
+  const trimmedUrl = String(url).trim();
+  if (!trimmedUrl) return '';
+
+  if (/^https?:\/\//i.test(trimmedUrl)) {
+    return trimmedUrl;
   }
 
-  const trimmed = url.trim();
-
-  if (
-    trimmed.startsWith('http://') ||
-    trimmed.startsWith('https://')
-  ) {
-    return trimmed;
-  }
-
-  return `https://${trimmed}`;
+  return `https://${trimmedUrl}`;
 };
 
-export const validateField = (
-  name,
-  value
-) => {
-  const strVal =
-    typeof value === 'string'
-      ? value.trim()
-      : '';
+/* --------------------------------------------------
+   Relative Time Formatting
+-------------------------------------------------- */
 
-  const today = getTodayString();
+export const formatRelativeTime = (date) => {
+  if (!date) return '';
 
-  switch (name) {
-    case 'company':
-      if (!strVal) {
-        return 'Company name is required.';
-      }
+  const timestamp = new Date(date).getTime();
+  if (Number.isNaN(timestamp)) return '';
 
-      return '';
+  const difference = Date.now() - timestamp;
+  if (difference < 0) return 'just now';
 
-    case 'role':
-      if (!strVal) {
-        return 'Role name is required.';
-      }
+  const seconds = Math.floor(difference / 1000);
+  if (seconds < 60) return 'just now';
 
-      return '';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
 
-    case 'appliedDate':
-      if (!value) {
-        return 'Applied Date is required.';
-      }
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
 
-      if (value > today) {
-        return 'Applied Date cannot be in the future.';
-      }
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} day${days === 1 ? '' : 's'} ago`;
 
-      return '';
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months} month${months === 1 ? '' : 's'} ago`;
 
-    case 'jobLink':
-      if (!strVal) {
-        return 'Job link is required.';
-      }
-
-      if (!isValidUrl(strVal)) {
-        return 'Please enter a valid URL.';
-      }
-
-      return '';
-
-    default:
-      return '';
-  }
+  const years = Math.floor(months / 12);
+  return `${years} year${years === 1 ? '' : 's'} ago`;
 };
 
-export const validateApplication = (
-  formData
-) => {
-  const fields = [
-    'company',
-    'role',
-    'appliedDate',
-    'jobLink',
-  ];
+/* --------------------------------------------------
+   Exact Date Formatting
+-------------------------------------------------- */
 
-  const errors = {};
+export const formatExactDate = (date) => {
+  if (!date) return '';
 
-  fields.forEach((field) => {
-    const errorMsg = validateField(
-      field,
-      formData[field]
-    );
+  const parsedDate = new Date(date);
+  if (Number.isNaN(parsedDate.getTime())) return '';
 
-    if (errorMsg) {
-      errors[field] = errorMsg;
-    }
+  return parsedDate.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
   });
+};
 
-  return errors;
+/* --------------------------------------------------
+   Transition Factory
+-------------------------------------------------- */
+
+export const createTransition = (from, to) => {
+  return {
+    id: `trans-${generateUUID()}`,
+    from,
+    to,
+    changedAt: new Date().toISOString(),
+  };
 };

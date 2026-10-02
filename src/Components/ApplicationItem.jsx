@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 import {
   calculateDaysSinceApplied,
@@ -9,6 +9,12 @@ import {
   getTodayString,
 } from '../Utils/helpers';
 
+const INITIAL_INTERVIEW_FORM = {
+  type: 'phone',
+  date: getTodayString(),
+  note: '',
+};
+
 function ApplicationItem({
   application,
   onEdit,
@@ -17,51 +23,45 @@ function ApplicationItem({
   onRemoveInterviewRound,
 }) {
   const currentRound = getDerivedRound(application);
+  const badgeClass = `badge-${currentRound.toLowerCase().replace(/\s+/g, '-')}`;
 
-  const daysSince = calculateDaysSinceApplied(
-    application.appliedDate
-  );
-
+  const daysSince = calculateDaysSinceApplied(application.appliedDate);
   const isStale = isApplicationStale(application);
-
   const hrefUrl = formatUrl(application.jobLink);
 
-  const sortedHistory = Array.isArray(application.history)
-    ? [...application.history].sort(
-        (a, b) =>
-          new Date(b.changedAt).getTime() -
-          new Date(a.changedAt).getTime()
-      )
-    : [];
+  const sortedHistory = useMemo(() => {
+    return Array.isArray(application.history)
+      ? [...application.history].sort(
+          (a, b) => new Date(b.changedAt).getTime() - new Date(a.changedAt).getTime()
+        )
+      : [];
+  }, [application.history]);
 
-  const interviewRounds = Array.isArray(
-    application.interviewRounds
-  )
+  const interviewRounds = Array.isArray(application.interviewRounds)
     ? application.interviewRounds
     : [];
 
-  const [showInterviewForm, setShowInterviewForm] =
-    useState(false);
-
-  const [interviewForm, setInterviewForm] = useState({
-    type: 'phone',
-    date: getTodayString(),
-    note: '',
-  });
-
+  const [showInterviewForm, setShowInterviewForm] = useState(false);
+  const [interviewForm, setInterviewForm] = useState(INITIAL_INTERVIEW_FORM);
   const [interviewErrors, setInterviewErrors] = useState({});
+
+  const resetInterviewForm = () => {
+    setInterviewForm({
+      ...INITIAL_INTERVIEW_FORM,
+      date: getTodayString(),
+    });
+    setInterviewErrors({});
+    setShowInterviewForm(false);
+  };
 
   const validateInterviewRound = () => {
     const errors = {};
-
     if (!interviewForm.type) {
       errors.type = 'Interview type is required.';
     }
-
     if (!interviewForm.date) {
       errors.date = 'Interview date is required.';
     }
-
     return errors;
   };
 
@@ -83,7 +83,6 @@ function ApplicationItem({
     e.preventDefault();
 
     const errors = validateInterviewRound();
-
     if (Object.keys(errors).length > 0) {
       setInterviewErrors(errors);
       return;
@@ -96,29 +95,13 @@ function ApplicationItem({
       note: interviewForm.note.trim(),
     });
 
-    setInterviewForm({
-      type: 'phone',
-      date: getTodayString(),
-      note: '',
-    });
-
-    setInterviewErrors({});
-    setShowInterviewForm(false);
+    resetInterviewForm();
   };
 
   const handleInterviewKeyDown = (e) => {
     if (e.key === 'Escape') {
       e.preventDefault();
-
-      setShowInterviewForm(false);
-
-      setInterviewForm({
-        type: 'phone',
-        date: getTodayString(),
-        note: '',
-      });
-
-      setInterviewErrors({});
+      resetInterviewForm();
     }
   };
 
@@ -128,20 +111,14 @@ function ApplicationItem({
 
   return (
     <article
-      className={`application-item ${
-        isStale ? 'is-stale' : ''
-      }`}
+      className={`application-item ${isStale ? 'is-stale' : ''}`}
       data-testid="application-row"
     >
       <div className="application-details">
         <div className="title-row">
-          <h3 className="company-title">
-            {application.company}
-          </h3>
+          <h3 className="company-title">{application.company}</h3>
 
-          <span
-            className={`round-badge badge-${currentRound.toLowerCase()}`}
-          >
+          <span className={`round-badge ${badgeClass}`}>
             {currentRound}
           </span>
 
@@ -159,13 +136,11 @@ function ApplicationItem({
 
         <div className="meta-row">
           <span className="meta-applied">
-            <strong>Applied:</strong>{' '}
-            {application.appliedDate}
+            <strong>Applied:</strong> {application.appliedDate}
           </span>
 
           <span className="days-ago">
-            ({daysSince}{' '}
-            {daysSince === 1 ? 'day' : 'days'} ago)
+            ({daysSince} {daysSince === 1 ? 'day' : 'days'} ago)
           </span>
 
           <span className="meta-separator">•</span>
@@ -187,20 +162,20 @@ function ApplicationItem({
           aria-label="Interview rounds"
         >
           <div className="detail-section-header">
-            <h4>
-              Interview Rounds ({interviewRounds.length})
-            </h4>
+            <h4>Interview Rounds ({interviewRounds.length})</h4>
 
             <button
               type="button"
               className="add-round-button"
-              onClick={() =>
-                setShowInterviewForm((prev) => !prev)
-              }
+              onClick={() => {
+                if (showInterviewForm) {
+                  resetInterviewForm();
+                } else {
+                  setShowInterviewForm(true);
+                }
+              }}
             >
-              {showInterviewForm
-                ? 'Cancel'
-                : '+ Add Interview Round'}
+              {showInterviewForm ? 'Cancel' : '+ Add Interview Round'}
             </button>
           </div>
 
@@ -226,14 +201,13 @@ function ApplicationItem({
                   name="type"
                   value={interviewForm.type}
                   onChange={handleInterviewChange}
-                  className={
+                  className={interviewErrors.type ? 'input-error' : ''}
+                  aria-invalid={Boolean(interviewErrors.type)}
+                  aria-describedby={
                     interviewErrors.type
-                      ? 'input-error'
-                      : ''
+                      ? `round-type-error-${application.id}`
+                      : undefined
                   }
-                  aria-invalid={Boolean(
-                    interviewErrors.type
-                  )}
                 >
                   {INTERVIEW_ROUND_TYPES.map((type) => (
                     <option key={type} value={type}>
@@ -243,7 +217,11 @@ function ApplicationItem({
                 </select>
 
                 {interviewErrors.type && (
-                  <p className="error-message" role="alert">
+                  <p
+                    id={`round-type-error-${application.id}`}
+                    className="error-message"
+                    role="alert"
+                  >
                     {interviewErrors.type}
                   </p>
                 )}
@@ -254,9 +232,7 @@ function ApplicationItem({
                   interviewErrors.date ? 'has-error' : ''
                 }`}
               >
-                <label
-                  htmlFor={`round-date-${application.id}`}
-                >
+                <label htmlFor={`round-date-${application.id}`}>
                   Date *
                 </label>
 
@@ -266,27 +242,28 @@ function ApplicationItem({
                   type="date"
                   value={interviewForm.date}
                   onChange={handleInterviewChange}
-                  className={
+                  className={interviewErrors.date ? 'input-error' : ''}
+                  aria-invalid={Boolean(interviewErrors.date)}
+                  aria-describedby={
                     interviewErrors.date
-                      ? 'input-error'
-                      : ''
+                      ? `round-date-error-${application.id}`
+                      : undefined
                   }
-                  aria-invalid={Boolean(
-                    interviewErrors.date
-                  )}
                 />
 
                 {interviewErrors.date && (
-                  <p className="error-message" role="alert">
+                  <p
+                    id={`round-date-error-${application.id}`}
+                    className="error-message"
+                    role="alert"
+                  >
                     {interviewErrors.date}
                   </p>
                 )}
               </div>
 
               <div className="form-field full-width">
-                <label
-                  htmlFor={`round-note-${application.id}`}
-                >
+                <label htmlFor={`round-note-${application.id}`}>
                   Note
                 </label>
 
@@ -301,20 +278,14 @@ function ApplicationItem({
               </div>
 
               <div className="form-actions">
-                <button
-                  type="submit"
-                  className="primary-button"
-                >
+                <button type="submit" className="primary-button">
                   Add Round
                 </button>
 
                 <button
                   type="button"
                   className="cancel-button"
-                  onClick={() => {
-                    setShowInterviewForm(false);
-                    setInterviewErrors({});
-                  }}
+                  onClick={resetInterviewForm}
                 >
                   Cancel (Esc)
                 </button>
@@ -335,20 +306,14 @@ function ApplicationItem({
                 >
                   <div className="interview-round-info">
                     <strong>{round.type}</strong>
-
                     <span>{round.date}</span>
-
-                    {round.note && (
-                      <span>— {round.note}</span>
-                    )}
+                    {round.note && <span>— {round.note}</span>}
                   </div>
 
                   <button
                     type="button"
                     className="delete-round-button"
-                    onClick={() =>
-                      handleRemoveInterviewRound(round.id)
-                    }
+                    onClick={() => handleRemoveInterviewRound(round.id)}
                     aria-label={`Remove ${round.type} interview round on ${round.date}`}
                   >
                     Remove
@@ -364,9 +329,7 @@ function ApplicationItem({
           className="history-section"
           aria-label="Transition history"
         >
-          <h4>
-            Transition History ({sortedHistory.length})
-          </h4>
+          <h4>Transition History ({sortedHistory.length})</h4>
 
           {sortedHistory.length === 0 ? (
             <p className="detail-empty">
@@ -375,10 +338,7 @@ function ApplicationItem({
           ) : (
             <ul className="history-list">
               {sortedHistory.map((item) => (
-                <li
-                  key={item.id}
-                  className="history-item"
-                >
+                <li key={item.id} className="history-item">
                   <span>
                     {item.from && (
                       <>
@@ -386,14 +346,11 @@ function ApplicationItem({
                         {' → '}
                       </>
                     )}
-
                     <strong>{item.to}</strong>
                   </span>
 
                   <span>
-                    {new Date(
-                      item.changedAt
-                    ).toLocaleString()}
+                    {new Date(item.changedAt).toLocaleString()}
                   </span>
                 </li>
               ))}

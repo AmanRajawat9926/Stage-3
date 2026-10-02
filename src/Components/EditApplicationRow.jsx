@@ -16,11 +16,11 @@ function EditApplicationRow({
   const currentRound = getDerivedRound(application);
 
   const [formData, setFormData] = useState({
-    company: application.company,
-    role: application.role,
+    company: application.company || '',
+    role: application.role || '',
     round: currentRound,
-    appliedDate: application.appliedDate,
-    jobLink: application.jobLink,
+    appliedDate: application.appliedDate || '',
+    jobLink: application.jobLink || '',
   });
 
   const [errors, setErrors] = useState({});
@@ -42,29 +42,29 @@ function EditApplicationRow({
   };
 
   const handleSubmit = (e) => {
-    if (e) {
-      e.preventDefault();
-    }
+    e.preventDefault();
 
-    const validationErrors =
-      validateApplication(formData);
+    const validationErrors = validateApplication(formData);
 
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
     }
 
-    let updatedHistory = Array.isArray(
-      application.history
-    )
+    const updatedHistory = Array.isArray(application.history)
       ? [...application.history]
       : [];
 
     let newTransition = null;
 
     if (formData.round !== currentRound) {
+      const generatedId =
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `trans-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
       newTransition = {
-        id: crypto.randomUUID(),
+        id: generatedId,
         from: currentRound,
         to: formData.round,
         changedAt: new Date().toISOString(),
@@ -73,23 +73,18 @@ function EditApplicationRow({
       updatedHistory.push(newTransition);
     }
 
-    const {
-      round,
-      stage,
-      ...cleanApp
-    } = application;
+    const { round, stage, ...cleanApp } = application;
 
-    onSave(
-      {
-        ...cleanApp,
-        company: formData.company.trim(),
-        role: formData.role.trim(),
-        history: updatedHistory,
-        appliedDate: formData.appliedDate,
-        jobLink: formData.jobLink.trim(),
-      },
-      newTransition
-    );
+    const updatedApplication = {
+      ...cleanApp,
+      company: formData.company.trim(),
+      role: formData.role.trim(),
+      history: updatedHistory,
+      appliedDate: formData.appliedDate,
+      jobLink: formData.jobLink.trim(),
+    };
+
+    onSave(updatedApplication, newTransition);
   };
 
   const handleKeyDown = (e) => {
@@ -108,14 +103,9 @@ function EditApplicationRow({
       aria-label={`Editing application for ${application.company}`}
     >
       <div className="edit-grid">
-        <div
-          className={`form-field ${
-            errors.company ? 'has-error' : ''
-          }`}
-        >
-          <label
-            htmlFor={`edit-company-${application.id}`}
-          >
+        {/* Company */}
+        <div className={`form-field ${errors.company ? 'has-error' : ''}`}>
+          <label htmlFor={`edit-company-${application.id}`}>
             Company *
           </label>
 
@@ -126,23 +116,26 @@ function EditApplicationRow({
             value={formData.company}
             onChange={handleChange}
             autoFocus
-            className={
-              errors.company ? 'input-error' : ''
+            className={errors.company ? 'input-error' : ''}
+            aria-invalid={Boolean(errors.company)}
+            aria-describedby={
+              errors.company ? `edit-company-error-${application.id}` : undefined
             }
           />
 
           {errors.company && (
-            <p className="error-message" role="alert">
+            <p
+              id={`edit-company-error-${application.id}`}
+              className="error-message"
+              role="alert"
+            >
               {errors.company}
             </p>
           )}
         </div>
 
-        <div
-          className={`form-field ${
-            errors.role ? 'has-error' : ''
-          }`}
-        >
+        {/* Role */}
+        <div className={`form-field ${errors.role ? 'has-error' : ''}`}>
           <label htmlFor={`edit-role-${application.id}`}>
             Role *
           </label>
@@ -154,15 +147,24 @@ function EditApplicationRow({
             value={formData.role}
             onChange={handleChange}
             className={errors.role ? 'input-error' : ''}
+            aria-invalid={Boolean(errors.role)}
+            aria-describedby={
+              errors.role ? `edit-role-error-${application.id}` : undefined
+            }
           />
 
           {errors.role && (
-            <p className="error-message" role="alert">
+            <p
+              id={`edit-role-error-${application.id}`}
+              className="error-message"
+              role="alert"
+            >
               {errors.role}
             </p>
           )}
         </div>
 
+        {/* Round */}
         <div className="form-field">
           <label htmlFor={`edit-round-${application.id}`}>
             Round
@@ -182,14 +184,9 @@ function EditApplicationRow({
           </select>
         </div>
 
-        <div
-          className={`form-field ${
-            errors.appliedDate ? 'has-error' : ''
-          }`}
-        >
-          <label
-            htmlFor={`edit-appliedDate-${application.id}`}
-          >
+        {/* Applied Date */}
+        <div className={`form-field ${errors.appliedDate ? 'has-error' : ''}`}>
+          <label htmlFor={`edit-appliedDate-${application.id}`}>
             Applied Date *
           </label>
 
@@ -200,26 +197,29 @@ function EditApplicationRow({
             max={getTodayString()}
             value={formData.appliedDate}
             onChange={handleChange}
-            className={
-              errors.appliedDate ? 'input-error' : ''
+            className={errors.appliedDate ? 'input-error' : ''}
+            aria-invalid={Boolean(errors.appliedDate)}
+            aria-describedby={
+              errors.appliedDate
+                ? `edit-appliedDate-error-${application.id}`
+                : undefined
             }
           />
 
           {errors.appliedDate && (
-            <p className="error-message" role="alert">
+            <p
+              id={`edit-appliedDate-error-${application.id}`}
+              className="error-message"
+              role="alert"
+            >
               {errors.appliedDate}
             </p>
           )}
         </div>
 
-        <div
-          className={`form-field full-width ${
-            errors.jobLink ? 'has-error' : ''
-          }`}
-        >
-          <label
-            htmlFor={`edit-jobLink-${application.id}`}
-          >
+        {/* Job Link */}
+        <div className={`form-field full-width ${errors.jobLink ? 'has-error' : ''}`}>
+          <label htmlFor={`edit-jobLink-${application.id}`}>
             Job Link *
           </label>
 
@@ -229,13 +229,19 @@ function EditApplicationRow({
             name="jobLink"
             value={formData.jobLink}
             onChange={handleChange}
-            className={
-              errors.jobLink ? 'input-error' : ''
+            className={errors.jobLink ? 'input-error' : ''}
+            aria-invalid={Boolean(errors.jobLink)}
+            aria-describedby={
+              errors.jobLink ? `edit-jobLink-error-${application.id}` : undefined
             }
           />
 
           {errors.jobLink && (
-            <p className="error-message" role="alert">
+            <p
+              id={`edit-jobLink-error-${application.id}`}
+              className="error-message"
+              role="alert"
+            >
               {errors.jobLink}
             </p>
           )}
@@ -243,10 +249,7 @@ function EditApplicationRow({
       </div>
 
       <div className="item-actions editing-actions">
-        <button
-          type="submit"
-          className="save-button"
-        >
+        <button type="submit" className="save-button">
           Save Changes
         </button>
 

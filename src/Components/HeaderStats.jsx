@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import {
   ROUNDS,
   getDerivedRound,
@@ -5,69 +7,65 @@ import {
   countUpcomingInterviews,
 } from '../Utils/helpers';
 
-function HeaderStats({ applications }) {
-  const counts = ROUNDS.reduce((acc, round) => {
-    acc[round] = 0;
-    return acc;
-  }, {});
+function HeaderStats({ applications = [] }) {
+  const { counts, staleCount, upcomingInterviews } = useMemo(() => {
+    const initialCounts = ROUNDS.reduce((acc, round) => {
+      acc[round] = 0;
+      return acc;
+    }, {});
 
-  applications.forEach((app) => {
-    const currentRound = getDerivedRound(app);
+    applications.forEach((app) => {
+      const currentRound = getDerivedRound(app);
 
-    if (counts[currentRound] !== undefined) {
-      counts[currentRound] += 1;
-    }
-  });
+      if (initialCounts[currentRound] !== undefined) {
+        initialCounts[currentRound] += 1;
+      }
+    });
 
-  const staleCount =
-    countStaleApplications(applications);
-
-  const upcomingInterviews =
-    countUpcomingInterviews(applications);
+    return {
+      counts: initialCounts,
+      staleCount: countStaleApplications(applications),
+      upcomingInterviews: typeof countUpcomingInterviews === 'function' 
+        ? countUpcomingInterviews(applications) 
+        : 0,
+    };
+  }, [applications]);
 
   return (
     <section
       className="header-stats"
-      aria-label="Pipeline overview"
+      aria-label="Pipeline overview summary statistics"
     >
-      <div className="stat-card total">
-        <span className="stat-label">Total</span>
+      <ul className="stats-list" role="list">
+        <li className="stat-card total">
+          <span className="stat-label">Total</span>
+          <span className="stat-count">{applications.length}</span>
+        </li>
 
-        <span className="stat-count">
-          {applications.length}
-        </span>
-      </div>
+        {ROUNDS.map((round) => {
+          const classNameSlug = round.toLowerCase().replace(/\s+/g, '-');
 
-      {ROUNDS.map((round) => (
-        <div
-          key={round}
-          className={`stat-card stat-${round.toLowerCase()}`}
-        >
-          <span className="stat-label">{round}</span>
+          return (
+            <li
+              key={round}
+              className={`stat-card stat-${classNameSlug}`}
+            >
+              <span className="stat-label">{round}</span>
+              <span className="stat-count">{counts[round] || 0}</span>
+            </li>
+          );
+        })}
 
-          <span className="stat-count">
-            {counts[round]}
-          </span>
-        </div>
-      ))}
+        <li className="stat-card stat-stale">
+          <span className="stat-label">Stale (&gt;14d)</span>
+          <span className="stat-count">{staleCount}</span>
+        </li>
 
-      <div className="stat-card stat-stale">
-        <span className="stat-label">Stale</span>
-
-        <span className="stat-count">
-          {staleCount}
-        </span>
-      </div>
-
-      <div className="stat-card stat-upcoming">
-        <span className="stat-label">
-          Interviews Next 7 Days
-        </span>
-
-        <span className="stat-count">
-          {upcomingInterviews}
-        </span>
-      </div>
+        <li className="stat-card stat-upcoming">
+          <span className="stat-label">Interviews (Next 7 Days)</span>
+          <span className="stat-count">{upcomingInterviews}</span>
+        </li>
+      </ul>
     </section>
   );
 }

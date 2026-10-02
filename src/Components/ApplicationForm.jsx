@@ -7,16 +7,16 @@ import {
   validateField,
 } from '../Utils/helpers';
 
-const INITIAL_FORM = {
+const getInitialForm = () => ({
   company: '',
   role: '',
   round: 'Applied',
   appliedDate: getTodayString(),
   jobLink: '',
-};
+});
 
 function ApplicationForm({ onAddApplication }) {
-  const [formData, setFormData] = useState(INITIAL_FORM);
+  const [formData, setFormData] = useState(getInitialForm);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
 
@@ -55,13 +55,17 @@ function ApplicationForm({ onAddApplication }) {
   };
 
   const handleReset = () => {
-    setFormData({
-      ...INITIAL_FORM,
-      appliedDate: getTodayString(),
-    });
-
+    setFormData(getInitialForm());
     setErrors({});
     setTouched({});
+  };
+
+  // Escape key resets the form.
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      handleReset();
+    }
   };
 
   const handleSubmit = (e) => {
@@ -98,20 +102,12 @@ function ApplicationForm({ onAddApplication }) {
       ],
 
       interviewRounds: [],
-
       appliedDate: formData.appliedDate,
       jobLink: formData.jobLink.trim(),
       createdAt: Date.now(),
     });
 
     handleReset();
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      handleReset();
-    }
   };
 
   return (
@@ -127,11 +123,7 @@ function ApplicationForm({ onAddApplication }) {
       </div>
 
       <div className="form-row">
-        <div
-          className={`form-field ${
-            errors.company ? 'has-error' : ''
-          }`}
-        >
+        <div className={`form-field ${errors.company ? 'has-error' : ''}`}>
           <label htmlFor="company">Company *</label>
 
           <input
@@ -150,21 +142,13 @@ function ApplicationForm({ onAddApplication }) {
           />
 
           {errors.company && (
-            <p
-              id="company-error"
-              className="error-message"
-              role="alert"
-            >
+            <p id="company-error" className="error-message" role="alert">
               {errors.company}
             </p>
           )}
         </div>
 
-        <div
-          className={`form-field ${
-            errors.role ? 'has-error' : ''
-          }`}
-        >
+        <div className={`form-field ${errors.role ? 'has-error' : ''}`}>
           <label htmlFor="role">Role *</label>
 
           <input
@@ -177,17 +161,11 @@ function ApplicationForm({ onAddApplication }) {
             placeholder="e.g. Frontend Engineer"
             className={errors.role ? 'input-error' : ''}
             aria-invalid={Boolean(errors.role)}
-            aria-describedby={
-              errors.role ? 'role-error' : undefined
-            }
+            aria-describedby={errors.role ? 'role-error' : undefined}
           />
 
           {errors.role && (
-            <p
-              id="role-error"
-              className="error-message"
-              role="alert"
-            >
+            <p id="role-error" className="error-message" role="alert">
               {errors.role}
             </p>
           )}
@@ -213,9 +191,7 @@ function ApplicationForm({ onAddApplication }) {
         </div>
 
         <div
-          className={`form-field ${
-            errors.appliedDate ? 'has-error' : ''
-          }`}
+          className={`form-field ${errors.appliedDate ? 'has-error' : ''}`}
         >
           <label htmlFor="appliedDate">Applied Date *</label>
 
@@ -227,14 +203,10 @@ function ApplicationForm({ onAddApplication }) {
             value={formData.appliedDate}
             onChange={handleChange}
             onBlur={handleBlur}
-            className={
-              errors.appliedDate ? 'input-error' : ''
-            }
+            className={errors.appliedDate ? 'input-error' : ''}
             aria-invalid={Boolean(errors.appliedDate)}
             aria-describedby={
-              errors.appliedDate
-                ? 'appliedDate-error'
-                : undefined
+              errors.appliedDate ? 'appliedDate-error' : undefined
             }
           />
 
@@ -260,24 +232,18 @@ function ApplicationForm({ onAddApplication }) {
         <input
           id="jobLink"
           name="jobLink"
-          type="text"
+          type="url"
           value={formData.jobLink}
           onChange={handleChange}
           onBlur={handleBlur}
           placeholder="https://company.com/careers/frontend-role"
           className={errors.jobLink ? 'input-error' : ''}
           aria-invalid={Boolean(errors.jobLink)}
-          aria-describedby={
-            errors.jobLink ? 'jobLink-error' : undefined
-          }
+          aria-describedby={errors.jobLink ? 'jobLink-error' : undefined}
         />
 
         {errors.jobLink && (
-          <p
-            id="jobLink-error"
-            className="error-message"
-            role="alert"
-          >
+          <p id="jobLink-error" className="error-message" role="alert">
             {errors.jobLink}
           </p>
         )}
