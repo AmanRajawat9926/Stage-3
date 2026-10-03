@@ -18,10 +18,16 @@ export const INTERVIEW_ROUND_TYPES = [
 -------------------------------------------------- */
 
 const generateUUID = () => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+  if (
+    typeof crypto !== 'undefined' &&
+    typeof crypto.randomUUID === 'function'
+  ) {
     return crypto.randomUUID();
   }
-  return `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 9)}`;
+
+  return `${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .substring(2, 9)}`;
 };
 
 /* --------------------------------------------------
@@ -30,9 +36,16 @@ const generateUUID = () => {
 
 export const getTodayString = () => {
   const today = new Date();
+
   const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const day = String(today.getDate()).padStart(2, '0');
+
+  const month = String(
+    today.getMonth() + 1
+  ).padStart(2, '0');
+
+  const day = String(
+    today.getDate()
+  ).padStart(2, '0');
 
   return `${year}-${month}-${day}`;
 };
@@ -41,24 +54,38 @@ export const getTodayString = () => {
    Validation
 -------------------------------------------------- */
 
-export const validateField = (name, value) => {
-  const trimmedValue = String(value ?? '').trim();
+export const validateField = (
+  name,
+  value
+) => {
+  const trimmedValue = String(
+    value ?? ''
+  ).trim();
 
   if (name === 'company') {
-    return !trimmedValue ? 'Company is required.' : '';
+    return !trimmedValue
+      ? 'Company is required.'
+      : '';
   }
 
   if (name === 'role') {
-    return !trimmedValue ? 'Role is required.' : '';
+    return !trimmedValue
+      ? 'Role is required.'
+      : '';
   }
 
   if (name === 'appliedDate') {
     if (!trimmedValue) {
       return 'Applied date is required.';
     }
-    if (trimmedValue > getTodayString()) {
+
+    if (
+      trimmedValue >
+      getTodayString()
+    ) {
       return 'Applied date cannot be in the future.';
     }
+
     return '';
   }
 
@@ -68,9 +95,16 @@ export const validateField = (name, value) => {
     }
 
     try {
-      const formattedUrl = formatUrl(trimmedValue);
-      const parsedUrl = new URL(formattedUrl);
-      return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:'
+      const formattedUrl =
+        formatUrl(trimmedValue);
+
+      const parsedUrl =
+        new URL(formattedUrl);
+
+      return (
+        parsedUrl.protocol === 'http:' ||
+        parsedUrl.protocol === 'https:'
+      )
         ? ''
         : 'Please enter a valid HTTP or HTTPS URL.';
     } catch {
@@ -81,12 +115,24 @@ export const validateField = (name, value) => {
   return '';
 };
 
-export const validateApplication = (formData) => {
+export const validateApplication = (
+  formData
+) => {
   const errors = {};
-  const fields = ['company', 'role', 'appliedDate', 'jobLink'];
+
+  const fields = [
+    'company',
+    'role',
+    'appliedDate',
+    'jobLink',
+  ];
 
   fields.forEach((field) => {
-    const error = validateField(field, formData?.[field]);
+    const error = validateField(
+      field,
+      formData?.[field]
+    );
+
     if (error) {
       errors[field] = error;
     }
@@ -96,66 +142,184 @@ export const validateApplication = (formData) => {
 };
 
 /* --------------------------------------------------
-   Sorted Transition History & Derived Round
+   Transition History
 -------------------------------------------------- */
 
-export const getSortedHistory = (application) => {
-  if (!application || !Array.isArray(application.history)) {
+/*
+ * Returns a COPY of history sorted newest first.
+ *
+ * This helper is for display purposes.
+ * It never mutates the original stored history.
+ */
+export const getSortedHistory = (
+  application
+) => {
+  if (
+    !application ||
+    !Array.isArray(application.history)
+  ) {
     return [];
   }
 
-  return [...application.history].sort((a, b) => {
-    const timeA = new Date(a.changedAt).getTime();
-    const timeB = new Date(b.changedAt).getTime();
+  return [...application.history].sort(
+    (a, b) => {
+      const timeA =
+        new Date(
+          a.changedAt
+        ).getTime();
 
-    if (timeB !== timeA) {
-      return timeB - timeA;
+      const timeB =
+        new Date(
+          b.changedAt
+        ).getTime();
+
+      if (timeB !== timeA) {
+        return timeB - timeA;
+      }
+
+      return String(
+        b.id || ''
+      ).localeCompare(
+        String(a.id || '')
+      );
     }
-
-    return String(b.id || '').localeCompare(String(a.id || ''));
-  });
+  );
 };
 
-export const getDerivedRound = (application) => {
-  const sortedHistory = getSortedHistory(application);
-  return sortedHistory[0]?.to || 'Applied';
+/*
+ * Current round is derived ONLY from the
+ * latest stored transition.
+ *
+ * History is stored oldest -> newest.
+ * Therefore the last item is the current state.
+ */
+export const getDerivedRound = (
+  application
+) => {
+  if (
+    !application ||
+    !Array.isArray(application.history) ||
+    application.history.length === 0
+  ) {
+    return 'Applied';
+  }
+
+  const lastTransition =
+    application.history[
+      application.history.length - 1
+    ];
+
+  return lastTransition?.to || 'Applied';
 };
 
 /* --------------------------------------------------
-   Migration Helper
+   Migration
 -------------------------------------------------- */
 
-export const migrateApplications = (apps) => {
+/*
+ * Converts old Stage 1 applications into the
+ * Stage 3 history-based shape.
+ *
+ * Legacy:
+ * {
+ *   round: 'Screen'
+ * }
+ *
+ * becomes:
+ * {
+ *   history: [
+ *     {
+ *       from: null,
+ *       to: 'Screen',
+ *       changedAt: ...
+ *     }
+ *   ]
+ * }
+ *
+ * Existing Stage 3 history is preserved.
+ */
+export const migrateApplications = (
+  apps
+) => {
   if (!Array.isArray(apps)) {
     return [];
   }
 
   return apps.map((app) => {
-    const legacyRound = app.round || app.stage || 'Applied';
-    const { round, stage, ...cleanApp } = app;
+    const legacyRound =
+      app.round ||
+      app.stage ||
+      'Applied';
 
-    if (Array.isArray(app.history) && app.history.length > 0) {
+    /*
+     * Remove the old duplicated round/stage
+     * fields from the new application shape.
+     */
+    const {
+      round,
+      stage,
+      ...cleanApp
+    } = app;
+
+    /*
+     * Already migrated application.
+     *
+     * Preserve its history exactly.
+     */
+    if (
+      Array.isArray(app.history) &&
+      app.history.length > 0
+    ) {
       return {
         ...cleanApp,
-        interviewRounds: Array.isArray(app.interviewRounds) ? app.interviewRounds : [],
+        history: [
+          ...app.history,
+        ],
+        interviewRounds:
+          Array.isArray(
+            app.interviewRounds
+          )
+            ? [
+                ...app.interviewRounds,
+              ]
+            : [],
       };
     }
 
-    const migrationTimestamp = app.createdAt
-      ? new Date(app.createdAt).toISOString()
-      : new Date().toISOString();
+    /*
+     * Stage 1 application:
+     * seed exactly one transition.
+     */
+    const migrationTimestamp =
+      app.createdAt
+        ? new Date(
+            app.createdAt
+          ).toISOString()
+        : new Date().toISOString();
 
     const initialTransition = {
-      id: `trans-migrated-${app.id || generateUUID()}`,
+      id: `trans-migrated-${
+        app.id || generateUUID()
+      }`,
       from: null,
       to: legacyRound,
-      changedAt: migrationTimestamp,
+      changedAt:
+        migrationTimestamp,
     };
 
     return {
       ...cleanApp,
-      history: [initialTransition],
-      interviewRounds: Array.isArray(app.interviewRounds) ? app.interviewRounds : [],
+      history: [
+        initialTransition,
+      ],
+      interviewRounds:
+        Array.isArray(
+          app.interviewRounds
+        )
+          ? [
+              ...app.interviewRounds,
+            ]
+          : [],
     };
   });
 };
@@ -164,159 +328,308 @@ export const migrateApplications = (apps) => {
    Application Age & Stale Checks
 -------------------------------------------------- */
 
-export const calculateDaysSinceApplied = (appliedDate) => {
+export const calculateDaysSinceApplied = (
+  appliedDate
+) => {
   if (!appliedDate) {
     return 0;
   }
 
-  const [year, month, day] = appliedDate.split('-').map(Number);
-  if (!year || !month || !day) return 0;
+  const [
+    year,
+    month,
+    day,
+  ] = appliedDate
+    .split('-')
+    .map(Number);
 
-  const appliedUtc = Date.UTC(year, month - 1, day);
-  
-  const todayStr = getTodayString();
-  const [tYear, tMonth, tDay] = todayStr.split('-').map(Number);
-  const todayUtc = Date.UTC(tYear, tMonth - 1, tDay);
+  if (!year || !month || !day) {
+    return 0;
+  }
 
-  const difference = todayUtc - appliedUtc;
+  const appliedUtc = Date.UTC(
+    year,
+    month - 1,
+    day
+  );
 
-  return Math.max(0, Math.floor(difference / (1000 * 60 * 60 * 24)));
+  const todayStr =
+    getTodayString();
+
+  const [
+    todayYear,
+    todayMonth,
+    todayDay,
+  ] = todayStr
+    .split('-')
+    .map(Number);
+
+  const todayUtc = Date.UTC(
+    todayYear,
+    todayMonth - 1,
+    todayDay
+  );
+
+  const difference =
+    todayUtc - appliedUtc;
+
+  return Math.max(
+    0,
+    Math.floor(
+      difference /
+        (1000 * 60 * 60 * 24)
+    )
+  );
 };
 
-export const isApplicationStale = (application) => {
+export const isApplicationStale = (
+  application
+) => {
   if (!application) {
     return false;
   }
 
-  const currentRound = getDerivedRound(application);
+  const currentRound =
+    getDerivedRound(application);
 
-  if (currentRound !== 'Applied' && currentRound !== 'Screen') {
+  /*
+   * Only Applied and Screen applications
+   * can be stale.
+   */
+  if (
+    currentRound !== 'Applied' &&
+    currentRound !== 'Screen'
+  ) {
     return false;
   }
 
-  return calculateDaysSinceApplied(application.appliedDate) > 14;
+  return (
+    calculateDaysSinceApplied(
+      application.appliedDate
+    ) > 14
+  );
 };
 
-export const countStaleApplications = (applications) => {
+export const countStaleApplications = (
+  applications
+) => {
   if (!Array.isArray(applications)) {
     return 0;
   }
 
-  return applications.filter(isApplicationStale).length;
+  return applications.filter(
+    isApplicationStale
+  ).length;
 };
 
 /* --------------------------------------------------
    Upcoming Interviews
 -------------------------------------------------- */
 
-export const isUpcomingInterview = (interviewRound) => {
-  if (!interviewRound?.date) {
+export const isUpcomingInterview = (
+  interviewRound
+) => {
+  if (
+    !interviewRound?.date
+  ) {
     return false;
   }
 
-  const [year, month, day] = interviewRound.date.split('-').map(Number);
-  if (!year || !month || !day) return false;
+  const today = new Date();
 
-  const interviewUtc = Date.UTC(year, month - 1, day);
+  const todayUtc = Date.UTC(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate()
+  );
 
-  const todayStr = getTodayString();
-  const [tYear, tMonth, tDay] = todayStr.split('-').map(Number);
-  const todayUtc = Date.UTC(tYear, tMonth - 1, tDay);
+  const [
+    year,
+    month,
+    day,
+  ] = interviewRound.date
+    .split('-')
+    .map(Number);
 
-  const sevenDaysUtc = todayUtc + 7 * 24 * 60 * 60 * 1000;
+  if (!year || !month || !day) {
+    return false;
+  }
 
-  return interviewUtc >= todayUtc && interviewUtc <= sevenDaysUtc;
+  const interviewUtc = Date.UTC(
+    year,
+    month - 1,
+    day
+  );
+
+  const sevenDaysLater =
+    todayUtc +
+    7 * 24 * 60 * 60 * 1000;
+
+  return (
+    interviewUtc >= todayUtc &&
+    interviewUtc <= sevenDaysLater
+  );
 };
 
-export const countUpcomingInterviews = (applications) => {
+export const countUpcomingInterviews = (
+  applications
+) => {
   if (!Array.isArray(applications)) {
     return 0;
   }
 
-  return applications.reduce((count, application) => {
-    if (!Array.isArray(application.interviewRounds)) {
-      return count;
-    }
+  return applications.reduce(
+    (count, application) => {
+      const rounds =
+        Array.isArray(
+          application.interviewRounds
+        )
+          ? application.interviewRounds
+          : [];
 
-    const upcomingCount = application.interviewRounds.filter(isUpcomingInterview).length;
-    return count + upcomingCount;
-  }, 0);
+      return (
+        count +
+        rounds.filter(
+          isUpcomingInterview
+        ).length
+      );
+    },
+    0
+  );
 };
 
 /* --------------------------------------------------
-   URL Helper
+   URL Helpers
 -------------------------------------------------- */
 
-export const formatUrl = (url) => {
-  if (!url) return '';
-  const trimmedUrl = String(url).trim();
-  if (!trimmedUrl) return '';
+export const formatUrl = (
+  value
+) => {
+  const trimmedValue = String(
+    value ?? ''
+  ).trim();
 
-  if (/^https?:\/\//i.test(trimmedUrl)) {
-    return trimmedUrl;
+  if (!trimmedValue) {
+    return '';
   }
 
-  return `https://${trimmedUrl}`;
+  if (
+    trimmedValue.startsWith(
+      'http://'
+    ) ||
+    trimmedValue.startsWith(
+      'https://'
+    )
+  ) {
+    return trimmedValue;
+  }
+
+  return `https://${trimmedValue}`;
 };
 
 /* --------------------------------------------------
-   Relative Time Formatting
+   Display Helpers
 -------------------------------------------------- */
 
-export const formatRelativeTime = (date) => {
-  if (!date) return '';
+export const formatRelativeTime = (
+  dateString
+) => {
+  if (!dateString) {
+    return '';
+  }
 
-  const timestamp = new Date(date).getTime();
-  if (Number.isNaN(timestamp)) return '';
+  const timestamp =
+    new Date(
+      dateString
+    ).getTime();
 
-  const difference = Date.now() - timestamp;
-  if (difference < 0) return 'just now';
+  if (Number.isNaN(timestamp)) {
+    return '';
+  }
 
-  const seconds = Math.floor(difference / 1000);
-  if (seconds < 60) return 'just now';
+  const difference =
+    Date.now() - timestamp;
 
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+  const seconds = Math.floor(
+    difference / 1000
+  );
 
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  if (seconds < 60) {
+    return 'just now';
+  }
 
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days} day${days === 1 ? '' : 's'} ago`;
+  const minutes = Math.floor(
+    seconds / 60
+  );
 
-  const months = Math.floor(days / 30);
-  if (months < 12) return `${months} month${months === 1 ? '' : 's'} ago`;
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
 
-  const years = Math.floor(months / 12);
-  return `${years} year${years === 1 ? '' : 's'} ago`;
+  const hours = Math.floor(
+    minutes / 60
+  );
+
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+
+  const days = Math.floor(
+    hours / 24
+  );
+
+  if (days < 30) {
+    return `${days}d ago`;
+  }
+
+  const months = Math.floor(
+    days / 30
+  );
+
+  return `${months}mo ago`;
 };
 
-/* --------------------------------------------------
-   Exact Date Formatting
--------------------------------------------------- */
+export const formatExactDate = (
+  dateString
+) => {
+  if (!dateString) {
+    return '';
+  }
 
-export const formatExactDate = (date) => {
-  if (!date) return '';
+  const date =
+    new Date(dateString);
 
-  const parsedDate = new Date(date);
-  if (Number.isNaN(parsedDate.getTime())) return '';
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return '';
+  }
 
-  return parsedDate.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  return date.toLocaleDateString(
+    undefined,
+    {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    }
+  );
 };
 
 /* --------------------------------------------------
    Transition Factory
 -------------------------------------------------- */
 
-export const createTransition = (from, to) => {
+export const createTransition = (
+  from,
+  to
+) => {
   return {
     id: `trans-${generateUUID()}`,
     from,
     to,
-    changedAt: new Date().toISOString(),
+    changedAt:
+      new Date().toISOString(),
   };
 };
