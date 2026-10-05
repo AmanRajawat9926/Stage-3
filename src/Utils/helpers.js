@@ -39,6 +39,6 @@ export const isUpcomingInterview = (
 
   return (
     interviewUtc >= todayUtc &&
-    interviewUtc < sevenDaysLater
+    interviewUtc <= sevenDaysLater
   ); // This excludes interviews exactly 7 days later
 };

@@ -65,4 +65,5 @@ const filteredAndSortedApplications = useMemo(() => {
   }, [
     applications,
     searchQuery,
+    selectedRound
   ]); // Missing 'selectedRound' dependency

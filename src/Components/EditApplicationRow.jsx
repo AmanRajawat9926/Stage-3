@@ -1,6 +1,6 @@
 let newTransition = null;
 
-if (formData.round !== application.round) {
+if (formData.round !== currentRound) {
       const generatedId =
         typeof crypto !== 'undefined' && crypto.randomUUID
           ? crypto.randomUUID()
